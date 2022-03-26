@@ -1,0 +1,74 @@
+package ru.yandex.praktikum;
+
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
+import io.restassured.response.ValidatableResponse;
+import org.junit.*;
+import ru.yandex.praktikum.Courier.Courier;
+import ru.yandex.praktikum.Courier.CourierClient;
+import ru.yandex.praktikum.Courier.CourierCredentials;
+
+import static org.apache.http.HttpStatus.*;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.not;
+
+public class TestWhenCreatingCourier {
+
+    private CourierClient courierClient;
+    private int courierId;
+
+    @Before
+    public void setUp() {
+        courierClient = new CourierClient();
+    }
+
+    @After
+    public void tearDown() {
+        if (courierId != 0) {
+            courierClient.delete(courierId);
+        }
+    }
+
+    @Test
+    @DisplayName("Регистрация курьера")
+    @Description("Создали курьера и прошли авторизацию")
+    public void courierBeCreatedWithValidData() {
+        Courier courier = Courier.getAllRandom();
+
+        ValidatableResponse isCourierCreated = courierClient.create(courier);
+        int statusCode = isCourierCreated.extract().statusCode();
+        ValidatableResponse loginResponse = courierClient.login(CourierCredentials.from(courier));
+        courierId = loginResponse.extract().path("id");
+
+        assertThat("Курьер не создан", statusCode, equalTo(SC_CREATED));
+        assertThat("Данные не корректны", courierId, is(not(0)));
+    }
+
+    @Test
+    @DisplayName("Создание курьера без логина")
+    @Description("Проверили, что нельзя создать курьера с пустым логином")
+    public void creatingCourierWithoutLogin() {
+        Courier courier = Courier.getRandomNoLogin();
+        ValidatableResponse isCourierCreated = courierClient.create(courier);
+        int statusCode = isCourierCreated.extract().statusCode();
+        String message = isCourierCreated.extract().path("message");
+
+        assertThat("Недостаточно данных для создания учетной записи", statusCode, is(SC_BAD_REQUEST));
+        assertThat("Ошибка в тексте", message, equalTo("Недостаточно данных для создания учетной записи"));
+    }
+
+    @Test
+    @DisplayName("Создание курьера без пароля")
+    @Description("Проверили, что нельзя создать курьера с пустым паролем")
+    public void creatingCourierWithoutPassword() {
+        Courier courier = Courier.getRandomNoPassword();
+        ValidatableResponse isCourierCreated = courierClient.create(courier);
+        int statusCode = isCourierCreated.extract().statusCode();
+        String message = isCourierCreated.extract().path("message");
+
+        assertThat("Недостаточно данных для создания учетной записи", statusCode, is(SC_BAD_REQUEST));
+        assertThat("Ошибка в тексте", message, equalTo("Недостаточно данных для создания учетной записи"));
+    }
+}
